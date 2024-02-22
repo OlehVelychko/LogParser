@@ -1,3 +1,5 @@
+package task;
+
 public enum Event {
     LOGIN,
     DOWNLOAD_PLUGIN,

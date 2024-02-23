@@ -1,7 +1,7 @@
 package query;
 
-import task.Event;
-import task.Status;
+import data.Event;
+import data.Status;
 
 
 import java.util.Date;

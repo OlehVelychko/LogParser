@@ -1,5 +1,6 @@
-package task;
+package data;
 
+import query.DateQuery;
 import query.IPQuery;
 import query.UserQuery;
 
@@ -18,7 +19,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class LogParser implements IPQuery, UserQuery {
+public class LogParser implements IPQuery, UserQuery, DateQuery {
     private Path logDir;
     private List<LogEntity> logEntities = new ArrayList<>();
     private DateFormat simpleDateFormat = new SimpleDateFormat("d.M.yyyy H:m:s");
@@ -284,6 +285,99 @@ public class LogParser implements IPQuery, UserQuery {
                         (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
                         (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
                 .map(LogEntity::getUser)
+                .collect(Collectors.toSet());
+    }
+
+
+    @Override
+    public Set<Date> getDatesForUserAndEvent(String user, Event event, Date after, Date before) {
+        return logEntities.stream()
+                .filter(logEntity -> logEntity.getUser().equals(user) &&
+                        logEntity.getEvent().equals(event) &&
+                        (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
+                        (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
+                .map(LogEntity::getDate)
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    public Set<Date> getDatesWhenSomethingFailed(Date after, Date before) {
+        return logEntities.stream()
+                .filter(logEntity -> logEntity.getStatus().equals(Status.FAILED) &&
+                        (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
+                        (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
+                .map(LogEntity::getDate)
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    public Set<Date> getDatesWhenErrorHappened(Date after, Date before) {
+        return logEntities.stream()
+                .filter(logEntity -> logEntity.getStatus().equals(Status.ERROR) &&
+                        (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
+                        (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
+                .map(LogEntity::getDate)
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    public Date getDateWhenUserLoggedFirstTime(String user, Date after, Date before) {
+        return logEntities.stream()
+                .filter(logEntity -> logEntity.getUser().equals(user) &&
+                        logEntity.getEvent().equals(Event.LOGIN) &&
+                        (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
+                        (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
+                .map(LogEntity::getDate)
+                .min(Date::compareTo)
+                .orElse(null);
+    }
+
+
+    @Override
+    public Date getDateWhenUserSolvedTask(String user, int task, Date after, Date before) {
+        return logEntities.stream()
+                .filter(logEntity -> logEntity.getUser().equals(user) &&
+                        logEntity.getEvent().equals(Event.SOLVE_TASK) &&
+                        logEntity.getEventAdditionalParameter() == task &&
+                        (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
+                        (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
+                .map(LogEntity::getDate)
+                .min(Date::compareTo)
+                .orElse(null);
+    }
+
+    @Override
+    public Date getDateWhenUserDoneTask(String user, int task, Date after, Date before) {
+        return logEntities.stream()
+                .filter(logEntity -> logEntity.getUser().equals(user) &&
+                        logEntity.getEvent().equals(Event.DONE_TASK) &&
+                        logEntity.getEventAdditionalParameter() == task &&
+                        (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
+                        (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
+                .map(LogEntity::getDate)
+                .min(Date::compareTo)
+                .orElse(null);
+    }
+
+    @Override
+    public Set<Date> getDatesWhenUserWroteMessage(String user, Date after, Date before) {
+        return logEntities.stream()
+                .filter(logEntity -> logEntity.getUser().equals(user) &&
+                        logEntity.getEvent().equals(Event.WRITE_MESSAGE) &&
+                        (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
+                        (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
+                .map(LogEntity::getDate)
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    public Set<Date> getDatesWhenUserDownloadedPlugin(String user, Date after, Date before) {
+        return logEntities.stream()
+                .filter(logEntity -> logEntity.getUser().equals(user) &&
+                        logEntity.getEvent().equals(Event.DOWNLOAD_PLUGIN) &&
+                        (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
+                        (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
+                .map(LogEntity::getDate)
                 .collect(Collectors.toSet());
     }
 

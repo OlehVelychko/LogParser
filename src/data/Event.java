@@ -1,4 +1,4 @@
-package task;
+package data;
 
 public enum Event {
     LOGIN,

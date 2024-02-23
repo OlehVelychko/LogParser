@@ -1,6 +1,7 @@
 package data;
 
 import query.DateQuery;
+import query.EventQuery;
 import query.IPQuery;
 import query.UserQuery;
 
@@ -13,13 +14,10 @@ import java.nio.file.Path;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
-public class LogParser implements IPQuery, UserQuery, DateQuery {
+public class LogParser implements IPQuery, UserQuery, DateQuery, EventQuery {
     private Path logDir;
     private List<LogEntity> logEntities = new ArrayList<>();
     private DateFormat simpleDateFormat = new SimpleDateFormat("d.M.yyyy H:m:s");
@@ -379,6 +377,100 @@ public class LogParser implements IPQuery, UserQuery, DateQuery {
                         (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
                 .map(LogEntity::getDate)
                 .collect(Collectors.toSet());
+    }
+
+    @Override
+    public int getNumberOfAllEvents(Date after, Date before) {
+        return getAllEvents(after, before).size();
+    }
+
+    @Override
+    public Set<Event> getAllEvents(Date after, Date before) {
+        return logEntities.stream()
+                .filter(logEntity -> (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
+                        (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
+                .map(LogEntity::getEvent)
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    public Set<Event> getEventsForIP(String ip, Date after, Date before) {
+        return logEntities.stream()
+                .filter(logEntity -> logEntity.getIP().equals(ip) &&
+                        (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
+                        (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
+                .map(LogEntity::getEvent)
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    public Set<Event> getEventsForUser(String user, Date after, Date before) {
+        return logEntities.stream()
+                .filter(logEntity -> logEntity.getUser().equals(user) &&
+                        (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
+                        (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
+                .map(LogEntity::getEvent)
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    public Set<Event> getFailedEvents(Date after, Date before) {
+        return logEntities.stream()
+                .filter(logEntity -> logEntity.getStatus().equals(Status.FAILED) &&
+                        (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
+                        (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
+                .map(LogEntity::getEvent)
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    public Set<Event> getErrorEvents(Date after, Date before) {
+        return logEntities.stream()
+                .filter(logEntity -> logEntity.getStatus().equals(Status.ERROR) &&
+                        (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
+                        (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
+                .map(LogEntity::getEvent)
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    public int getNumberOfAttemptToSolveTask(int task, Date after, Date before) {
+        return (int) logEntities.stream()
+                .filter(logEntity -> logEntity.getEventAdditionalParameter() == task &&
+                        logEntity.getEvent().equals(Event.SOLVE_TASK) &&
+                        (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
+                        (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
+                .count();
+    }
+
+    @Override
+    public int getNumberOfSuccessfulAttemptToSolveTask(int task, Date after, Date before) {
+        return (int) logEntities.stream()
+                .filter(logEntity -> logEntity.getEventAdditionalParameter() == task &&
+                        logEntity.getEvent().equals(Event.DONE_TASK) &&
+                        (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
+                        (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
+                .count();
+    }
+
+    @Override
+    public Map<Integer, Integer> getAllSolvedTasksAndTheirNumber(Date after, Date before) {
+        return logEntities.stream()
+                .filter(logEntity -> logEntity.getEvent().equals(Event.SOLVE_TASK) &&
+                        (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
+                        (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
+                .map(LogEntity::getEventAdditionalParameter)
+                .collect(Collectors.toMap(task -> task, task -> 1, Integer::sum));
+    }
+
+    @Override
+    public Map<Integer, Integer> getAllDoneTasksAndTheirNumber(Date after, Date before) {
+        return logEntities.stream()
+                .filter(logEntity -> logEntity.getEvent().equals(Event.DONE_TASK) &&
+                        (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
+                        (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
+                .map(LogEntity::getEventAdditionalParameter)
+                .collect(Collectors.toMap(task -> task, task -> 1, Integer::sum));
     }
 
     private class LogEntity {

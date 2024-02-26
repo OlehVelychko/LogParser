@@ -1,9 +1,6 @@
 package data;
 
-import query.DateQuery;
-import query.EventQuery;
-import query.IPQuery;
-import query.UserQuery;
+import query.*;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -17,7 +14,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class LogParser implements IPQuery, UserQuery, DateQuery, EventQuery {
+public class LogParser implements IPQuery, UserQuery, DateQuery, EventQuery, QLQuery {
     private Path logDir;
     private List<LogEntity> logEntities = new ArrayList<>();
     private DateFormat simpleDateFormat = new SimpleDateFormat("d.M.yyyy H:m:s");
@@ -471,6 +468,29 @@ public class LogParser implements IPQuery, UserQuery, DateQuery, EventQuery {
                         (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
                 .map(LogEntity::getEventAdditionalParameter)
                 .collect(Collectors.toMap(task -> task, task -> 1, Integer::sum));
+    }
+
+    @Override
+    public Set<?> execute(String query) {
+        return switch (query) {
+            case "get ip" -> new HashSet<>(getUniqueIPs(null, null));
+            case "get user" -> new HashSet<>(getAllUsers());
+            case "get date" -> new HashSet<>(getAllDates());
+            case "get event" -> new HashSet<>(getAllEvents(null, null));
+            case "get status" -> new HashSet<>(getAllStatuses());
+            default -> null;
+        };
+    }
+
+
+    private Set<Status> getAllStatuses() {
+        return EnumSet.allOf(Status.class);
+    }
+
+    private Set<Date> getAllDates() {
+        return logEntities.stream()
+                .map(LogEntity::getDate)
+                .collect(Collectors.toSet());
     }
 
     private class LogEntity {

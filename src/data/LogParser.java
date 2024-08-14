@@ -15,9 +15,9 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class LogParser implements IPQuery, UserQuery, DateQuery, EventQuery, QLQuery {
-    private Path logDir;
-    private List<LogEntity> logEntities = new ArrayList<>();
-    private DateFormat simpleDateFormat = new SimpleDateFormat("d.M.yyyy H:m:s");
+    private final Path logDir;
+    private final List<LogEntity> logEntities = new ArrayList<>();
+    private final DateFormat simpleDateFormat = new SimpleDateFormat("d.M.yyyy H:m:s");
 
     public LogParser(Path logDir) {
         this.logDir = logDir;
@@ -29,7 +29,7 @@ public class LogParser implements IPQuery, UserQuery, DateQuery, EventQuery, QLQ
             for (Path file : directoryStream) {
                 if (file.toString().toLowerCase().endsWith(".log")) {
                     try (BufferedReader reader = new BufferedReader(new FileReader(file.toFile()))) {
-                        String line = null;
+                        String line;
                         while ((line = reader.readLine()) != null) {
                             String[] params = line.split("\t");
 
@@ -68,68 +68,39 @@ public class LogParser implements IPQuery, UserQuery, DateQuery, EventQuery, QLQ
     }
 
     private Event readEvent(String lineToParse) {
-        Event event = null;
-        if (lineToParse.contains("SOLVE_TASK")) {
-            event = Event.SOLVE_TASK;
-        } else if (lineToParse.contains("DONE_TASK")) {
-            event = Event.DONE_TASK;
-        } else {
-            switch (lineToParse) {
-                case "LOGIN": {
-                    event = Event.LOGIN;
-                    break;
-                }
-                case "DOWNLOAD_PLUGIN": {
-                    event = Event.DOWNLOAD_PLUGIN;
-                    break;
-                }
-                case "WRITE_MESSAGE": {
-                    event = Event.WRITE_MESSAGE;
-                    break;
-                }
-            }
-        }
-        return event;
+        if (lineToParse.contains("SOLVE_TASK")) return Event.SOLVE_TASK;
+        if (lineToParse.contains("DONE_TASK")) return Event.DONE_TASK;
+        return eventMap.get(lineToParse);
     }
 
+    private static final Map<String, Event> eventMap = Map.of(
+            "LOGIN", Event.LOGIN,
+            "DOWNLOAD_PLUGIN", Event.DOWNLOAD_PLUGIN,
+            "WRITE_MESSAGE", Event.WRITE_MESSAGE
+    );
+
     private int readAdditionalParameter(String lineToParse) {
-        if (lineToParse.contains("SOLVE_TASK")) {
-            lineToParse = lineToParse.replace("SOLVE_TASK", "").replaceAll(" ", "");
-            return Integer.parseInt(lineToParse);
-        } else {
-            lineToParse = lineToParse.replace("DONE_TASK", "").replaceAll(" ", "");
-            return Integer.parseInt(lineToParse);
+        return extractTaskParameter(lineToParse, Event.SOLVE_TASK) != -1 ?
+                extractTaskParameter(lineToParse, Event.SOLVE_TASK) :
+                extractTaskParameter(lineToParse, Event.DONE_TASK);
+    }
+
+    private int extractTaskParameter(String lineToParse, Event event) {
+        if (lineToParse.contains(event.name())) {
+            return Integer.parseInt(lineToParse.replace(event.name(), "").replaceAll(" ", ""));
         }
+        return -1;
     }
 
     private Status readStatus(String lineToParse) {
-        Status status = null;
-        switch (lineToParse) {
-            case "OK": {
-                status = Status.OK;
-                break;
-            }
-            case "FAILED": {
-                status = Status.FAILED;
-                break;
-            }
-            case "ERROR": {
-                status = Status.ERROR;
-                break;
-            }
-        }
-        return status;
+        return statusMap.get(lineToParse);
     }
 
-    private boolean dateBetweenDates(Date current, Date after, Date before) {
-        if (after == null) {
-            after = new Date(0);
-        }
-        if (before == null) {
-            before = new Date(Long.MAX_VALUE);
-        }
-        return current.after(after) && current.before(before);
-    }
+    private static final Map<String, Status> statusMap = Map.of(
+            "OK", Status.OK,
+            "FAILED", Status.FAILED,
+            "ERROR", Status.ERROR
+    );
 
     @Override
     public int getNumberOfUniqueIPs(Date after, Date before) {
@@ -139,18 +110,24 @@ public class LogParser implements IPQuery, UserQuery, DateQuery, EventQuery, QLQ
     @Override
     public Set<String> getUniqueIPs(Date after, Date before) {
         return logEntities.stream()
-                .filter(logEntity -> (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
-                        (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
+                .filter(logEntity -> isLogEntityValid(logEntity, null, null, null, after, before))
                 .map(LogEntity::getIP)
                 .collect(Collectors.toSet());
+    }
+
+    private boolean isLogEntityValid(LogEntity logEntity, String user, Event event, Status status, Date after, Date before) {
+        boolean isUserMatch = (user == null || logEntity.getUser().equals(user));
+        boolean isEventMatch = (event == null || logEntity.getEvent().equals(event));
+        boolean isStatusMatch = (status == null || logEntity.getStatus().equals(status));
+        boolean isDateMatch = (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
+                (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before));
+        return isUserMatch && isEventMatch && isStatusMatch && isDateMatch;
     }
 
     @Override
     public Set<String> getIPsForUser(String user, Date after, Date before) {
         return logEntities.stream()
-                .filter(logEntity -> logEntity.getUser().equals(user) &&
-                        (after == null || logEntity.getDate().after(after) || logEntity.getDate().equals(after)) &&
-                        (before == null || logEntity.getDate().before(before) || logEntity.getDate().equals(before)))
+                .filter(logEntity -> isLogEntityValid(logEntity, user, null, null, after, before))
                 .map(LogEntity::getIP)
                 .collect(Collectors.toSet());
     }
@@ -494,12 +471,12 @@ public class LogParser implements IPQuery, UserQuery, DateQuery, EventQuery, QLQ
     }
 
     private class LogEntity {
-        private String IP;
-        private String user;
-        private Date date;
-        private Event event;
-        private int eventAdditionalParameter;
-        private Status status;
+        private final String IP;
+        private final String user;
+        private final Date date;
+        private final Event event;
+        private final int eventAdditionalParameter;
+        private final Status status;
 
         public LogEntity(String IP, String user, Date date, Event event, int eventAdditionalParameter, Status status) {
             this.IP = IP;
